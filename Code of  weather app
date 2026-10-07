@@ -1,0 +1,122 @@
+from IPython.display import HTML
+
+html_code = """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body style="margin: 0; background-color: #f4f7f6; font-family: sans-serif;">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function WeatherApp() {
+      const [city, setCity] = useState('London');
+      const [query, setQuery] = useState('London');
+      const [weather, setWeather] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        const fetchWeather = async () => {
+          setLoading(true);
+          setError(null);
+          try {
+            // Fetch city coordinates via Open-Meteo Geocoding API
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1`);
+            const geoData = await geoRes.json();
+
+            if (!geoData.results || geoData.results.length === 0) {
+              throw new Error('City not found. Please try another search.');
+            }
+
+            const { latitude, longitude, name, country } = geoData.results[0];
+
+            // Fetch weather and forecast data
+            const weatherRes = await fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
+            );
+            const weatherData = await weatherRes.json();
+
+            setWeather({
+              location: `${name}, ${country}`,
+              current: weatherData.current_weather,
+              daily: weatherData.daily
+            });
+          } catch (err) {
+            setError(err.message || 'Failed to fetch weather data.');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        if (query) fetchWeather();
+      }, [query]);
+
+      const handleSearch = (e) => {
+        e.preventDefault();
+        if (city.trim()) setQuery(city);
+      };
+
+      return (
+        <div style={{ maxWidth: '450px', margin: '30px auto', padding: '20px', border: '1px solid #ddd', borderRadius: '12px', backgroundColor: '#ffffff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ textAlign: 'center', color: '#333', marginTop: 0 }}>Weather App</h2>
+          
+          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Enter city..."
+              style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}
+            />
+            <button type="submit" style={{ padding: '10px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#007bff', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>
+              Search
+            </button>
+          </form>
+
+          {loading && <p style={{ textAlign: 'center', color: '#666' }}>Loading weather data...</p>}
+          {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
+
+          {weather && !loading && !error && (
+            <div>
+              <div style={{ backgroundColor: '#eef6ff', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                <h3 style={{ margin: '0 0 10px 0', color: '#0056b3' }}>{weather.location}</h3>
+                <p style={{ margin: '5px 0', fontSize: '22px', fontWeight: 'bold', color: '#222' }}>
+                  {weather.current.temperature}°C
+                </p>
+                <p style={{ margin: '0', color: '#555', fontSize: '14px' }}>
+                  Wind Speed: {weather.current.windspeed} km/h
+                </p>
+              </div>
+
+              <h4 style={{ color: '#333', marginBottom: '10px' }}>5-Day Forecast</h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {weather.daily.time.slice(0, 5).map((date, index) => (
+                  <li key={date} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee', fontSize: '14px' }}>
+                    <span>{date}</span>
+                    <span style={{ fontWeight: '500' }}>
+                      Low: {weather.daily.temperature_2m_min[index]}°C | High: {weather.daily.temperature_2m_max[index]}°C
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<WeatherApp />);
+  </script>
+</body>
+</html>
+"""
+
+HTML(f'<iframe srcdoc="{html_code.replace('"', '&quot;')}" width="100%" height="600px" style="border:none;"></iframe>')
